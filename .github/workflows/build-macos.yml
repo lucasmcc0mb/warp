@@ -1,37 +1,42 @@
-mkdir -p .github/workflows
-cat << 'EOF' > .github/workflows/build-macos.yml
 name: Build Custom macOS Warp
+
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build-macos:
     runs-on: macos-15
     steps:
-      - name: Checkout repository with LFS
+      - name: Checkout repository with Git LFS
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Install Rust Toolchain
+      - name: Setup Node & Corepack
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: corepack enable
+
+      - name: Install Rust Toolchain & cargo-bundle
         run: |
           rustup show active-toolchain || rustup toolchain install
           cargo install cargo-bundle
 
-      - name: Build WarpOss.app Bundle
+      - name: Build WarpOss.app Release Bundle
         run: |
           cargo bundle --release --bin warp-oss
 
-      - name: Package .app for Download
+      - name: Zip WarpOss.app for macOS Installation
         run: |
           cd target/release/bundle/osx
-          zip -r WarpOss-macOS.zip WarpOss.app
+          ditto -c -k --sequesterRsrc --keepParent WarpOss.app WarpOss-macOS.zip
 
-      - name: Upload Installer Artifact
+      - name: Upload macOS App Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WarpOss-macOS-Installer
+          name: WarpOss-macOS-App
           path: target/release/bundle/osx/WarpOss-macOS.zip
-EOF
