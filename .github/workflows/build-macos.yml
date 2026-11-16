@@ -26,14 +26,14 @@ jobs:
         run: |
           rustup show active-toolchain || rustup toolchain install
 
-      - name: Install cargo-bundle via cargo-binstall (No Source Compilation)
+      - name: Install cargo-bundle via cargo-binstall
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
           cargo binstall -y cargo-bundle
 
       - name: Build WarpOss.app Release Bundle
         run: |
-          cargo bundle --release --bin warp-oss
+          cargo bundle --release --manifest-path app/Cargo.toml --bin warp-oss
 
       - name: Zip WarpOss.app for macOS Installation
         run: |
