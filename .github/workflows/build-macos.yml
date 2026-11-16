@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - master
       - main
 
 jobs:
@@ -21,10 +22,14 @@ jobs:
           node-version: '20'
       - run: corepack enable
 
-      - name: Install Rust Toolchain & cargo-bundle
+      - name: Install Rust Toolchain
         run: |
           rustup show active-toolchain || rustup toolchain install
-          cargo install cargo-bundle
+
+      - name: Install cargo-bundle via cargo-binstall (No Source Compilation)
+        run: |
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall -y cargo-bundle
 
       - name: Build WarpOss.app Release Bundle
         run: |
