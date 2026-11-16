@@ -21174,307 +21174,22 @@ impl Workspace {
         appearance: &Appearance,
         ctx: &AppContext,
     ) -> Box<dyn Element> {
-        let mut tab_bar = Flex::row().with_cross_axis_alignment(CrossAxisAlignment::Center);
+        let _ = hover_fixed_width;
+        let mut tab_bar = Flex::row()
+            .with_main_axis_size(MainAxisSize::Max)
+            .with_cross_axis_alignment(CrossAxisAlignment::Center);
         let is_web_anonymous_user = self
             .auth_state
             .is_user_web_anonymous_user()
             .unwrap_or_default();
-
-        // Simplified mode for viewing Warp Drive objects, shared sessions, or conversation transcripts on WASM
-        #[cfg(target_family = "wasm")]
-        if let Some(content_type) = self.get_simplified_wasm_tab_bar_content(ctx) {
-            // Use MainAxisAlignment::SpaceBetween and expand to fill width
-            tab_bar = tab_bar
-                .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
-                .with_main_axis_size(MainAxisSize::Max);
-            let bg_color = blended_colors::neutral_1(appearance.theme());
-
-            // Left: Warp logo - clickable to link to warp.dev
-            let warp_logo = Hoverable::new(self.mouse_states.warp_logo.clone(), |_state| {
-                ConstrainedBox::new(
-                    warp_core::ui::Icon::Warp
-                        .to_warpui_icon(appearance.theme().foreground())
-                        .finish(),
-                )
-                .with_height(24.)
-                .with_width(24.)
-                .finish()
-            })
-            .on_click(|ctx, _, _| {
-                ctx.dispatch_typed_action(WorkspaceAction::OpenLink("https://warp.dev".to_owned()));
-            })
-            .with_cursor(Cursor::PointingHand)
-            .finish();
-            tab_bar.add_child(warp_logo);
-
-            // Right: Info button + "View all cloud runs" button (for ambient agent sessions) + "Open in Warp" button
-            let mut right_row = Flex::row()
-                .with_cross_axis_alignment(CrossAxisAlignment::Center)
-                .with_main_axis_size(MainAxisSize::Min);
-
-            // Extract task_id from conversation transcripts and shared sessions
-            let task_id = match content_type {
-                SimplifiedWasmTabBarContent::ConversationTranscript { task_id }
-                | SimplifiedWasmTabBarContent::SharedSession { task_id } => task_id,
-                SimplifiedWasmTabBarContent::WarpDriveObject => None,
-            };
-
-            // Show info button for conversation transcripts and shared sessions (if there's content to display)
-            let should_show_info_button =
-                !matches!(content_type, SimplifiedWasmTabBarContent::WarpDriveObject)
-                    && self
-                        .active_tab_pane_group()
-                        .as_ref(ctx)
-                        .focused_session_view(ctx)
-                        .is_some_and(|view| {
-                            Self::should_show_conversation_details_panel(&view, ctx)
-                        });
-
-            if should_show_info_button {
-                right_row.add_child(
-                    Container::new(ChildView::new(&self.transcript_info_button).finish())
-                        .with_margin_right(8.)
-                        .finish(),
-                );
-
-                // Add "View all cloud runs" button when task_id exists (with 4px gap)
-                if task_id.is_some() {
-                    right_row.add_child(
-                        Container::new(ChildView::new(&self.view_cloud_runs_button).finish())
-                            .with_margin_right(4.)
-                            .finish(),
-                    );
-                }
-            }
-
-            // Hide "Open in Warp" button on mobile devices
-            if !warpui::platform::wasm::is_mobile_device() {
-                right_row.add_child(ChildView::new(&self.open_in_warp_button).finish());
-            }
-            tab_bar.add_child(right_row.finish());
-
-            return Container::new(tab_bar.finish())
-                .with_background_color(bg_color)
-                .with_border(
-                    Border::bottom(1.0)
-                        .with_border_fill(blended_colors::neutral_2(appearance.theme())),
-                )
-                .with_padding_left(24.)
-                .with_padding_right(24.)
-                .with_padding_top(4.)
-                .with_padding_bottom(4.)
-                .finish();
-        }
-
-        // Check if vertical tabs mode is active
-        let vertical_tabs_active =
-            FeatureFlag::VerticalTabs.is_enabled() && *TabSettings::as_ref(ctx).use_vertical_tabs;
-
-        // Render config-driven left-side toolbar buttons (both horizontal and vertical tabs)
-        let knowledge_center_closed = true;
         let config = TabSettings::as_ref(ctx)
             .header_toolbar_chip_selection
             .clone();
-        if knowledge_center_closed {
-            let left_toolbar_buttons = config
-                .left_items()
-                .into_iter()
-                .filter_map(|item| self.render_header_toolbar_button(&item, appearance, ctx))
-                .collect::<Vec<_>>();
-            let left_toolbar_button_count = left_toolbar_buttons.len();
-            for (index, button) in left_toolbar_buttons.into_iter().enumerate() {
-                let is_last_left_toolbar_button = index + 1 == left_toolbar_button_count;
-                if !vertical_tabs_active && is_last_left_toolbar_button {
-                    tab_bar.add_child(Container::new(button).with_margin_right(8.).finish());
-                } else {
-                    tab_bar.add_child(button);
-                }
-            }
-        }
 
-        if vertical_tabs_active {
-            let mut right_controls = Flex::row()
-                .with_cross_axis_alignment(CrossAxisAlignment::Center)
-                .with_main_axis_size(MainAxisSize::Min);
+        // Oculta as abas visuais e o botão '+', mantendo a área arrastável no centro
+        tab_bar.add_child(Expanded::new(1., Empty::new().finish()).finish());
 
-            self.add_configurable_right_side_tab_bar_controls(
-                &mut right_controls,
-                &config,
-                is_web_anonymous_user,
-                appearance,
-                ctx,
-            );
-
-            let left_padding = self.compute_tab_bar_left_padding(ctx);
-
-            // The title bar search bar can be hidden via a user setting; when hidden,
-            // an empty flexible slot keeps the right-side controls aligned to the right.
-            let hide_search_bar =
-                *TabSettings::as_ref(ctx).hide_title_bar_search_bar_in_vertical_tabs;
-            let search_bar_slot = if hide_search_bar {
-                Expanded::new(1., Empty::new().finish()).finish()
-            } else {
-                Shrinkable::new(
-                    1.,
-                    Clipped::new(
-                        Container::new(
-                            Align::new(self.render_title_bar_search_bar(appearance)).finish(),
-                        )
-                        .with_padding_left(TITLE_BAR_SEARCH_BAR_SLOT_PADDING)
-                        .with_padding_right(TITLE_BAR_SEARCH_BAR_SLOT_PADDING)
-                        .finish(),
-                    )
-                    .finish(),
-                )
-                .finish()
-            };
-
-            let tab_bar = Flex::row()
-                .with_main_axis_size(MainAxisSize::Max)
-                .with_cross_axis_alignment(CrossAxisAlignment::Center)
-                .with_child(tab_bar.finish())
-                .with_child(search_bar_slot)
-                .with_child(right_controls.finish())
-                .finish();
-
-            return EventHandler::new(
-                Container::new(tab_bar)
-                    .with_padding_left(left_padding)
-                    .with_padding_right(TAB_BAR_PADDING_RIGHT)
-                    .finish(),
-            )
-            .on_right_mouse_down(|ctx, _, position, _| {
-                ctx.dispatch_typed_action(WorkspaceAction::ShowHeaderToolbarContextMenu {
-                    position,
-                });
-                DispatchEventResult::StopPropagation
-            })
-            .finish();
-        } else {
-            // Copy from our saved tab_bar_state to ensure all tabs get rendered with the same state
-            let active_tab_index = if FeatureFlag::AgentManagementView.is_enabled()
-                && self.current_workspace_state.is_agent_management_view_open
-            {
-                None
-            } else {
-                Some(self.active_tab_index)
-            };
-
-            let drag_model = CrossWindowTabDrag::as_ref(ctx);
-            let is_any_group_dragging = self
-                .tab_groups
-                .values()
-                .any(|g| g.draggable_state.is_dragging());
-            let tab_bar_state = TabBarState {
-                tab_count: self.tabs.len(),
-                active_tab_index,
-                is_any_tab_renaming: self.current_workspace_state.is_tab_being_renamed(),
-                is_any_tab_dragging: self.current_workspace_state.is_tab_being_dragged
-                    || drag_model.is_active()
-                    || is_any_group_dragging,
-                hover_fixed_width,
-            };
-            // The detached-placeholder slot in this (source) window is
-            // collapsed to zero width only while the dragged tab is actually
-            // away (floating in the preview, or ghosted / handed off to
-            // another window). While the cursor is back over this window's own
-            // tab bar the placeholder is reordered in place like an in-window
-            // drag and must stay full width, otherwise the drop zone vanishes
-            // and the slot oscillates ("fuzzy shake"). See
-            // `CrossWindowTabDrag::collapsed_source_placeholder_index`.
-            let transferred_tab_index =
-                drag_model.collapsed_source_placeholder_index(self.window_id);
-            // Ghost state for cross-window drag hovering over this tab bar.
-            let ghost = drag_model.ghost_state_for_window(self.window_id);
-
-            // Collapse tabs into render slots: each ungrouped tab is a
-            // `Single`, and each contiguous run of same-group tabs is one
-            // `Group`.
-            let slots = self.tab_bar_slots();
-
-            // Render each slot in the tab bar, either an individual tab or tab group.
-            for slot in &slots {
-                let start_index = match slot {
-                    TabBarSlot::Single { index } => *index,
-                    TabBarSlot::Group { first_index, .. } => *first_index,
-                };
-                // Insert ghost slot before this slot's first tab if the drag
-                // would land here.
-                if ghost
-                    .as_ref()
-                    .is_some_and(|g| g.insertion_index == start_index)
-                {
-                    tab_bar.add_child(self.render_ghost_tab_slot(appearance, ctx));
-                }
-
-                match slot {
-                    TabBarSlot::Group {
-                        group_id,
-                        first_index,
-                        run_len,
-                    } => {
-                        // Ungrouped insertion just before the group; a drop into
-                        // the group highlights the group itself instead.
-                        if show_before_indicator(self.hovered_tab_index, *first_index, None) {
-                            tab_bar.add_child(self.render_tab_hover_indicator(appearance));
-                        }
-                        // Filtered above; the group must exist in `tab_groups`.
-                        let group = self.tab_groups[group_id].clone();
-                        tab_bar.add_child(self.render_horizontal_tab_group(
-                            &group,
-                            *first_index,
-                            *run_len,
-                            tab_bar_state,
-                            *first_index == 0,
-                            appearance,
-                            ctx,
-                        ));
-                    }
-                    TabBarSlot::Single { index } => {
-                        let i = *index;
-                        let is_transferred = transferred_tab_index == Some(i);
-                        // Single tabs are ungrouped, so their before-indicator
-                        // only matches an ungrouped insertion.
-                        if !is_transferred && show_before_indicator(self.hovered_tab_index, i, None)
-                        {
-                            tab_bar.add_child(self.render_tab_hover_indicator(appearance));
-                        }
-                        if is_transferred {
-                            tab_bar.add_child(
-                                ConstrainedBox::new(self.render_tab_in_tab_bar(
-                                    i,
-                                    tab_bar_state,
-                                    ctx,
-                                ))
-                                .with_width(0.)
-                                .finish(),
-                            );
-                        } else {
-                            tab_bar.add_child(self.render_tab_in_tab_bar(i, tab_bar_state, ctx));
-                        }
-                    }
-                }
-            }
-
-            // Fencepost: ghost slot or hover indicator after all tabs.
-            if ghost
-                .as_ref()
-                .is_some_and(|g| g.insertion_index == self.tabs.len())
-            {
-                tab_bar.add_child(self.render_ghost_tab_slot(appearance, ctx));
-            } else if show_before_indicator(self.hovered_tab_index, self.tabs.len(), None) {
-                tab_bar.add_child(self.render_tab_hover_indicator(appearance));
-            }
-
-            if ContextFlag::CreateNewSession.is_enabled() {
-                tab_bar.add_child(self.render_new_session_button(ctx));
-            }
-        }
-
-        // Trailing spacer fills only the leftover width. When groups are collapsed
-        // the freed flex is distributed accross the remaining flex items in the tab bar.
-        tab_bar.add_child(Shrinkable::new(0.5, Empty::new().finish()).finish());
-
+        // Adiciona os botões da direita (Tools Panel e Avatar / Perfil)
         self.add_configurable_right_side_tab_bar_controls(
             &mut tab_bar,
             &config,
@@ -21642,35 +21357,14 @@ impl Workspace {
             );
         }
 
+        // Renderiza os itens configurados à direita (incluindo o Tools Panel)
         for item in config.right_items() {
             if let Some(button) = self.render_header_toolbar_button(&item, appearance, ctx) {
                 target.add_child(button);
             }
         }
 
-        // Legacy AI assistant button (non-agent-mode only)
-        if is_online
-            && !FeatureFlag::AgentMode.is_enabled()
-            && !is_web_anonymous_user
-            && !self.current_workspace_state.is_ai_assistant_panel_open
-        {
-            target.add_child(
-                Container::new(
-                    SavePosition::new(
-                        self.render_legacy_warp_ai_entrypoint_button(appearance),
-                        AI_ASSISTANT_BUTTON_ID,
-                    )
-                    .finish(),
-                )
-                .with_margin_left(TAB_BAR_PADDING_LEFT)
-                .finish(),
-            );
-        }
-
-        if let Some(pill) = self.render_team_switcher_pill(appearance, ctx) {
-            target.add_child(pill);
-        }
-
+        // Renderiza o botão de Avatar / Perfil no canto direito
         if FeatureFlag::AvatarInTabBar.is_enabled() {
             target.add_child(
                 Container::new(self.render_avatar_button(appearance, ctx))
@@ -21678,15 +21372,6 @@ impl Workspace {
                     .finish(),
             );
         } else {
-            let resource_center_closed = !self.current_workspace_state.is_resource_center_open;
-            if resource_center_closed && ContextFlag::WarpEssentials.is_enabled() {
-                target.add_child(
-                    Container::new(self.render_resource_center_button(appearance, ctx))
-                        .with_margin_left(TAB_BAR_PADDING_LEFT)
-                        .finish(),
-                );
-            }
-
             target.add_child(
                 Container::new(self.render_settings_button(appearance))
                     .with_margin_left(TAB_BAR_PADDING_LEFT)
@@ -21736,8 +21421,6 @@ impl Workspace {
         ctx: &AppContext,
     ) -> Box<dyn Element> {
         let bar_contents = ConstrainedBox::new(
-            // We can wrap the whole tab bar in the a drop target with the `AfterTabIndex` drop target data since the API for accepting a drop target with nested
-            // drop target elements will default to the inner ones (in this case the tabs or the button before the tabs)
             DropTarget::new(
                 self.render_tab_bar_contents(tab_fixed_width, appearance, ctx),
                 TabBarDropTargetData {
@@ -21749,9 +21432,7 @@ impl Workspace {
         .with_height(TAB_BAR_HEIGHT)
         .finish();
 
-        let tab_bar_border =
-            Border::bottom(TAB_BAR_BORDER_HEIGHT).with_border_fill(appearance.theme().outline());
-
+        // Fundo unificado com o terminal e sem a borda de 1px inferior
         let tab_bar_element = Container::new(
             EventHandler::new(Clipped::new(self.render_tab_bar_hoverable(bar_contents)).finish())
                 .on_back_mouse_down(move |ctx, _app, _position| {
@@ -21764,7 +21445,7 @@ impl Workspace {
                 })
                 .finish(),
         )
-        .with_border(tab_bar_border)
+        .with_fill(appearance.theme().background().into())
         .finish();
 
         let dimming_color = appearance.theme().background().into();
