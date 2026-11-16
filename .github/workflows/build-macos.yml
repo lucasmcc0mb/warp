@@ -33,7 +33,8 @@ jobs:
 
       - name: Build WarpOss.app Release Bundle
         run: |
-          cargo bundle --release --manifest-path app/Cargo.toml --bin warp-oss
+          cd app
+          cargo bundle --release
 
       - name: Zip WarpOss.app for macOS Installation
         run: |
