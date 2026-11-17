@@ -31,6 +31,9 @@ jobs:
         run: |
           cargo install cargo-bundle --version 0.5.0
 
+      - name: Install Protobuf Compiler (protoc)
+        run: brew install protobuf
+
       - name: Build WarpOss.app Release Bundle
         run: |
           cd app
