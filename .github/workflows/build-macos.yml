@@ -24,7 +24,8 @@ jobs:
 
       - name: Install Rust Toolchain
         run: |
-          rustup show active-toolchain || rustup toolchain install
+          rustup toolchain install 1.80.0
+          rustup default 1.80.0
 
       - name: Install cargo-bundle via cargo-binstall
         run: |
