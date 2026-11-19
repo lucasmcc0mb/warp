@@ -21445,7 +21445,6 @@ impl Workspace {
                 })
                 .finish(),
         )
-        .bg(appearance.theme().background())
         .finish();
 
         let dimming_color = appearance.theme().background().into();
