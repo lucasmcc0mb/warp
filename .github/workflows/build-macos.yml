@@ -41,11 +41,13 @@ jobs:
 
       - name: Zip WarpOss.app for macOS Installation
         run: |
-          cd target/release/bundle/osx
-          ditto -c -k --sequesterRsrc --keepParent WarpOss.app WarpOss-macOS.zip
+          BUNDLE_DIR="app/target/release/bundle/osx"
+          ls -la "$BUNDLE_DIR"
+          APP_PATH=$(find "$BUNDLE_DIR" -maxdepth 1 -name "*.app" | head -n 1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$GITHUB_WORKSPACE/WarpOss-macOS.zip"
 
       - name: Upload macOS App Artifact
         uses: actions/upload-artifact@v4
         with:
           name: WarpOss-macOS-App
-          path: target/release/bundle/osx/WarpOss-macOS.zip
+          path: WarpOss-macOS.zip
