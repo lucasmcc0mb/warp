@@ -23,13 +23,11 @@ jobs:
       - run: corepack enable
 
       - name: Install Rust Toolchain
-        run: |
-          rustup toolchain install 1.80.0
-          rustup default 1.80.0
+        run: rustup show active-toolchain
 
-      - name: Install Stable cargo-bundle (No Sigstore)
+      - name: Install Stable cargo-bundle (0.11.0, No Sigstore)
         run: |
-          cargo install cargo-bundle --version 0.5.0
+          cargo install cargo-bundle --version 0.11.0
 
       - name: Install Protobuf Compiler (protoc)
         run: brew install protobuf
@@ -37,13 +35,17 @@ jobs:
       - name: Build WarpOss.app Release Bundle
         run: |
           cd app
-          cargo bundle --release
+          cargo bundle --release --bin warp-oss
 
       - name: Zip WarpOss.app for macOS Installation
         run: |
-          BUNDLE_DIR="app/target/release/bundle/osx"
+          BUNDLE_DIR="target/release/bundle/osx"
           ls -la "$BUNDLE_DIR"
           APP_PATH=$(find "$BUNDLE_DIR" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: no .app bundle found in $BUNDLE_DIR" >&2
+            exit 1
+          fi
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$GITHUB_WORKSPACE/WarpOss-macOS.zip"
 
       - name: Upload macOS App Artifact
